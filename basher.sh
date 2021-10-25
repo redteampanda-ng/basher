@@ -29,7 +29,7 @@ ${NC}This script will scan hosts for open tcp ports.
     ${YELLOW}-h${BLUE} To show this message.
     ${YELLOW}-t${BLUE} Host(s) to scan. For multiple hosts use commas (e.g. 192.168.0.1,192.168.0.2,etc.)
     ${YELLOW}-p${BLUE} Port(s) to scan. For multiple ports use commas (e.g. 80,8080,443,8443,etc.)
-    ${YELLOW}-i${BLUE} Use ping before scanning - this will test if the host is reachable via ICMP
+    ${YELLOW}-i${BLUE} Use ping before scanning a host - this will test if the host is reachable via ICMP (might generate false-positives if a firewall blocks ICMP)
     ${YELLOW}-w${BLUE} Wait time before the script will mark a port as closed (default 0.5) - this should be changed accordingly to the network quality"
 
 WAITPORT=0.5
@@ -70,16 +70,30 @@ if [ $HOSTS ] && [ $PORTS ]; then
     do
         printf "Scanning Host: ${BLUE}%s${NC}\n" "$host"
         if [ $ICMP == "true" ]; then
-            timeout $WAITICMP bash -c "ping -c 1 $host" &> /dev/null &&
-            ONLINE="true" || ONLINE="false"
+	    if [ $host == *":"* ]; then
+                timeout $WAITICMP bash -c "ping6 -c 1 $host" &> /dev/null &&
+                ONLINE="true" || ONLINE="false" 
 
-            if [ $ONLINE == "true" ]; then
-                TTL=$(ping -c 1 $host | grep -oP '(?<=ttl=)[^ ]*')
-                printf "${BLUE}%s${GREEN} is online! -> TTL=%s${NC}\n" "$host" "$TTL"
+                if [ $ONLINE == "true" ]; then
+                    TTL=$(ping6 -c 1 $host | grep -oP '(?<=ttl=)[^ ]*')
+                    printf "${BLUE}%s${GREEN} is online! -> TTL=%s${NC}\n" "$host" "$TTL"
+                else
+                    printf "${YELLOW}Skipping Host ${BLUE}%s${NC}\n" "$host"
+                    printf "${YELLOW}Host seems offline. If you are sure that the host is online, omit -i option when running the script${NC}\n\n"
+                    continue
+                fi
             else
-                printf "${YELLOW}Skipping Host ${BLUE}%s${NC}\n" "$host"
-                printf "${YELLOW}Host seems offline. If you are sure that the host is online, omit -i option when running the script${NC}\n\n"
-                continue
+		timeout $WAITICMP bash -c "ping -c 1 $host" &> /dev/null &&
+                ONLINE="true" || ONLINE="false"
+
+                if [ $ONLINE == "true" ]; then
+                    TTL=$(ping -c 1 $host | grep -oP '(?<=ttl=)[^ ]*')
+                    printf "${BLUE}%s${GREEN} is online! -> TTL=%s${NC}\n" "$host" "$TTL"
+                else
+                    printf "${YELLOW}Skipping Host ${BLUE}%s${NC}\n" "$host"
+                    printf "${YELLOW}Host seems offline. If you are sure that the host is online, omit -i option when running the script${NC}\n\n"
+                    continue
+                fi
             fi
         fi
         
