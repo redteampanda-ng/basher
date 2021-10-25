@@ -25,26 +25,23 @@ ITALIC="${C}[3m"
 
 # Help
 HELP=$GREEN"Scan Hosts for open Ports.
-${NC}This script will scan hosts for open ports.
+${NC}This script will scan hosts for open tcp ports.
     ${YELLOW}-h${BLUE} To show this message.
-    ${YELLOW}-s${BLUE} Scan a single host for open ports.
-    ${YELLOW}-m${BLUE} Scan multiple hosts for open ports.
-    ${YELLOW}-x${BLUE} Hosts to scan.
-    ${YELLOW}-p${BLUE} Ports to scan.
-    ${YELLOW}-i${BLUE} Use ping before scanning (make sure host responds to ICMP packets)
-    ${YELLOW}-w${BLUE} Wait time before the script will mark a port as closed (default 0.5)"
+    ${YELLOW}-t${BLUE} Host(s) to scan. For multiple hosts use commas (e.g. 192.168.0.1,192.168.0.2,etc.)
+    ${YELLOW}-p${BLUE} Port(s) to scan. For multiple ports use commas (e.g. 80,8080,443,8443,etc.)
+    ${YELLOW}-i${BLUE} Use ping before scanning - this will test if the host is reachable via ICMP
+    ${YELLOW}-w${BLUE} Wait time before the script will mark a port as closed (default 0.5) - this should be changed accordingly to the network quality"
 
 WAITPORT=0.5
 WAITICMP=3
+ICMP="false"
 
-OPTION='h?smx:p:iw:'
+OPTION='h?t:p:iw:'
 
 while getopts $OPTION flag; do
     case "${flag}" in
         h  ) printf "%s\n\n" "$HELP$NC" >&2; exit 1;;
-        s  ) SINGLE="true";;
-        m  ) MULTIPLE="true";;
-        x  ) HOSTS="${OPTARG}";;
+        t  ) HOSTS="${OPTARG}";;
         p  ) PORTS="${OPTARG}";;
         i  ) ICMP="true";;
         w  ) WAITPORT="${OPTARG}";; # needs change to input level 1- 0.5s 2- 1s 3- 2s
@@ -55,44 +52,53 @@ while getopts $OPTION flag; do
     esac
 done
 
+
+# functions
+scanMe () {
+    host=$1
+    port=$2
+
+    timeout $WAITPORT bash -c "echo >/dev/tcp/$host/$port" 2> /dev/null &&
+    printf "${BLUE}$host${NC}:${GREEN}$port${NC} -> ${GREEN}[open]${NC}\n" ||
+    printf "${BLUE}$host${NC}:${RED}$port${NC} -> ${RED}[closed]${NC}\n"
+}
+
 # mandatory arguments
-if [ ! "$PORTS" ] || [ ! $HOSTS ]; then
-    printf "${RED}Both Host(s) and Port(s) must be provided!${NC}\n\n"
-    printf "%s\n\n" "$HELP$NC" >&2; exit 1
-fi
+if [ $HOSTS ] && [ $PORTS ]; then
+    IFS=',' read -r -a hostArray <<< "$HOSTS"
+    for host in "${hostArray[@]}"
+    do
+        printf "Scanning Host: ${BLUE}%s${NC}\n" "$host"
+        if [ $ICMP == "true" ]; then
+            timeout $WAITICMP bash -c "ping -c 1 $host" &> /dev/null &&
+            ONLINE="true" || ONLINE="false"
 
-
-    # old stuff, needs to be reused later on maybe
-	#if [[ $hosts == "" || $ports == "" ]]
-	#then
-	#	printf "\033[0;33mHost or Port can't be empty!\033[0m\n"
-	#	scanMe
-	#else
-	#	for host in ${hosts[@]}
-	#	do
-	#		for port in ${ports[@]}
-	#		do
-   	#			portScan $host $port 2>/dev/null
-	#		done
-	#	done
-	#	scanAgain
-	#fi
-
-if [ $ICMP ]; then
-    timeout $WAITICMP bash -c "ping -c 1 ${HOSTS}" &> /dev/null &&
-    ONLINE=1 ||
-    ONLINE=0
-
-    if [ $ONLINE == 1 ]; then
-        printf "${GREEN}Host is online!${NC}\n"
-    else
-        printf "${YELLOW}Host seems offline. If you are sure that the host is online, omit -i option when running the script!${NC}\n"
-        printf "${YELLOW}Skipping host ${HOSTS}${NC}\n"
+            if [ $ONLINE == "true" ]; then
+                TTL=$(ping -c 1 $host | grep -oP '(?<=ttl=)[^ ]*')
+                printf "${BLUE}%s${GREEN} is online! -> TTL=%s${NC}\n" "$host" "$TTL"
+            else
+                printf "${YELLOW}Skipping Host ${BLUE}%s${NC}\n" "$host"
+                printf "${YELLOW}Host seems offline. If you are sure that the host is online, omit -i option when running the script${NC}\n\n"
+                continue
+            fi
+        fi
+        
+        IFS=',' read -r -a portArray <<< "$PORTS"
+        for port in "${portArray[@]}"
+        do
+            if [ $port -lt 1 ] || [ $port -gt 65535 ]; then
+                printf "Port is invalid: ${RED}%s${NC}\n" "$port"
+                continue
+            else
+                scanMe "$host" "$port"
+            fi
+        done
+        printf "\n"
+    done
+elif [ ! $HOSTS]; then
+        printf "${RED}You have to specify at least one destination host!${NC}\n"
         exit 1
-    fi
+else
+        printf "${RED}You have to specify at least one destination port!${NC}\n"
+        exit 1
 fi
-
-timeout $WAITPORT bash -c "echo >/dev/tcp/$HOSTS/$PORTS" &> /dev/null &&
-printf "${BLUE}$HOSTS${NC}:${GREEN}$PORTS${NC} -> ${GREEN}[open]${NC}\n" ||
-printf "${BLUE}$HOSTS${NC}:${RED}$PORTS${NC} -> ${RED}[closed]${NC}\n"
-printf "done\n\n"
