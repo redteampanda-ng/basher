@@ -91,7 +91,7 @@ if [ $HOSTS ] && [ $PORTS ]; then
                     TTL=$(ping6 -c 1 $host | grep -oP '(?<=ttl=)[^ ]*')
                     printf "${BLUE}%s${GREEN} is online! -> TTL=%s${NC}\n" "$host" "$TTL"
                 elif [ $ONLINE == "false" && $QUIET == "true" ]; then
-                    printf "${YELLOW}Skipping Host (${RED}offline${YELLOW}): ${BLUE}%s${NC}\n" "$host"
+                    printf "${YELLOW}Skipping Host (${RED}offline${YELLOW}): ${BLUE}%s${NC}\n\n" "$host"
                     OFFLINEHOSTS=$((OFFLINEHOSTS+1))
                     continue
                 else
@@ -103,7 +103,7 @@ if [ $HOSTS ] && [ $PORTS ]; then
                     if [ $offlineHost == "y" ] || [ $offlineHost == "Y" ]; then
                         printf "Scanning Host: ${BLUE}%s${NC}\n" "$host"
                     else
-                        printf "${YELLOW}Skipping Host (${RED}offline${YELLOW}): ${BLUE}%s${NC}\n" "$host"
+                        printf "${YELLOW}Skipping Host (${RED}offline${YELLOW}): ${BLUE}%s${NC}\n\n" "$host"
                         OFFLINEHOSTS=$((OFFLINEHOSTS+1))
                         continue 
                     fi
