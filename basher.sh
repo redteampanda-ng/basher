@@ -149,6 +149,7 @@ if [ $HOSTS ] && [ $PORTS ]; then
         done
         printf "\n"
     done
+    
     printf "\nSummary of the scan:\n"
     printf "Scanned hosts:${YELLOW}$ONLINEHOSTS${NC}\n"
     printf "Skipped hosts:${YELLOW}$OFFLINEHOSTS${NC}\n"
