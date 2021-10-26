@@ -151,10 +151,10 @@ if [ $HOSTS ] && [ $PORTS ]; then
     done
     
     printf "\nSummary of the scan:\n"
-    printf "Scanned hosts:${YELLOW}$ONLINEHOSTS${NC}\n"
-    printf "Skipped hosts:${YELLOW}$OFFLINEHOSTS${NC}\n"
+    printf "Scanned hosts: ${YELLOW}$ONLINEHOSTS${NC}\n"
+    printf "Skipped hosts: ${YELLOW}$OFFLINEHOSTS${NC}\n"
     printf "Open ports: ${GREEN}$OPENPORTS${NC}\n"
-    printf "Closed ports:${RED}$CLOSEDPORTS${NC}\n"
+    printf "Closed ports: ${RED}$CLOSEDPORTS${NC}\n"
 elif [ ! $HOSTS]; then
         printf "${RED}You have to specify at least one destination host!${NC}\n"
         exit 1
