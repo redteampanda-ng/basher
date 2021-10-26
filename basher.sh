@@ -30,14 +30,17 @@ ${NC}This script will scan hosts for open tcp ports.
     ${YELLOW}-t${BLUE} Host(s) to scan. For multiple hosts use commas (e.g. 192.168.0.1,192.168.0.2,etc.)
     ${YELLOW}-p${BLUE} Port(s) to scan. For multiple ports use commas (e.g. 80,8080,443,8443,etc.)
     ${YELLOW}-i${BLUE} Use ping before scanning a host - this will test if the host is reachable via ICMP (might generate false-positives if a firewall blocks ICMP)
-    ${YELLOW}-w${BLUE} Wait time before the script will mark a port as closed (default 0.5) - this should be changed accordingly to the network quality"
+    ${YELLOW}-w${BLUE} Wait time before the script will mark a port as closed (default 0.5) - this should be changed accordingly to the network quality
+    ${YELLOW}-q${BLUE} Quiet mode, dont show closed ports"
 
 WAITPORT=0.5
 WAITICMP=3
 ICMP="false"
+QUIET="false"
 
-OPTION='h?t:p:iw:'
+OPTION='h?t:p:iw:q'
 
+# fix the errors and all together argument handling
 while getopts $OPTION flag; do
     case "${flag}" in
         h  ) printf "%s\n\n" "$HELP$NC" >&2; exit 1;;
@@ -45,6 +48,7 @@ while getopts $OPTION flag; do
         p  ) PORTS="${OPTARG}";;
         i  ) ICMP="true";;
         w  ) WAITPORT="${OPTARG}";; # needs change to input level 1- 0.5s 2- 1s 3- 2s
+	q  ) QUIET="true";;
         \? ) printf "${RED}Unknown option: -%s\n" "$OPTARG$NC" >&2; printf "%s\n\n" "$HELP$NC" >&2; exit 1;;
         :  ) printf "${YELLOW}Missing option argument for -%s\n" "$OPTARG$NC" >&2; printf "%s\n\n" "$HELP$NC" >&2; exit 1;;
         *  ) printf "${YELLOW}Unimplemented option: -%2\n" "$OPTARG$NC" >&2; printf "%s\n\n" "$HELP$NC" >&2; exit 1;;
@@ -57,10 +61,17 @@ done
 scanMe () {
     host=$1
     port=$2
-
-    timeout $WAITPORT bash -c "echo >/dev/tcp/$host/$port" 2> /dev/null &&
-    printf "${BLUE}$host${NC}:${GREEN}$port${NC} -> ${GREEN}[open]${NC}\n" ||
-    printf "${BLUE}$host${NC}:${RED}$port${NC} -> ${RED}[closed]${NC}\n"
+    
+    # quiet mode needs testing
+    if [ $QUIET == "true" ]; then
+        timeout $WAITPORT bash -c "echo >/dev/tcp/$host/$port" 2> /dev/null &&
+        printf "${BLUE}$host${NC}:${GREEN}$port${NC} -> ${GREEN}[open]${NC}\n" ||
+        echo "closed" > /dev/null
+    else
+    	timeout $WAITPORT bash -c "echo >/dev/tcp/$host/$port" 2> /dev/null &&
+    	printf "${BLUE}$host${NC}:${GREEN}$port${NC} -> ${GREEN}[open]${NC}\n" ||
+    	printf "${BLUE}$host${NC}:${RED}$port${NC} -> ${RED}[closed]${NC}\n"
+    fi
 }
 
 # mandatory arguments
@@ -78,6 +89,8 @@ if [ $HOSTS ] && [ $PORTS ]; then
                     TTL=$(ping6 -c 1 $host | grep -oP '(?<=ttl=)[^ ]*')
                     printf "${BLUE}%s${GREEN} is online! -> TTL=%s${NC}\n" "$host" "$TTL"
                 else
+		    # create prompt here if offline host should be scanned anyway
+		    # maybe add argument to skip the question -> "quiet mode"
                     printf "${YELLOW}Skipping Host ${BLUE}%s${NC}\n" "$host"
                     printf "${YELLOW}Host seems offline. If you are sure that the host is online, omit -i option when running the script${NC}\n\n"
                     continue
@@ -90,6 +103,8 @@ if [ $HOSTS ] && [ $PORTS ]; then
                     TTL=$(ping -c 1 $host | grep -oP '(?<=ttl=)[^ ]*')
                     printf "${BLUE}%s${GREEN} is online! -> TTL=%s${NC}\n" "$host" "$TTL"
                 else
+		    # create prompt here if offline host should be scanned anyway
+		    # maybe add argument to skip the question -> "quiet mode"
                     printf "${YELLOW}Skipping Host ${BLUE}%s${NC}\n" "$host"
                     printf "${YELLOW}Host seems offline. If you are sure that the host is online, omit -i option when running the script${NC}\n\n"
                     continue
