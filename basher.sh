@@ -31,7 +31,7 @@ ${NC}This script will scan hosts for open tcp ports.
     ${YELLOW}-p${BLUE} Port(s) to scan. For multiple ports use commas (e.g. 80,8080,443,8443,etc.)
     ${YELLOW}-i${BLUE} Use ping before scanning a host - this will test if the host is reachable via ICMP (might generate false-positives if a firewall blocks ICMP)
     ${YELLOW}-w${BLUE} Wait time before the script will mark a port as closed (default 0.5) - this should be changed accordingly to the network quality
-    ${YELLOW}-q${BLUE} Quiet mode, dont show closed ports"
+    ${YELLOW}-q${BLUE} Quiet mode, dont show closed ports and dont ask if offline hosts should be scanned anyway"
 
 WAITPORT=0.5
 WAITICMP=3
