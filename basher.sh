@@ -26,6 +26,7 @@ ITALIC="${C}[3m"
 # Help
 HELP=$GREEN"Scan Hosts for open Ports.
 ${NC}This script will scan hosts for open tcp ports.
+${BLUE}Usage: $0 -t host(s) -p port(s) [-i, -w 1, -q]
     ${YELLOW}-h${BLUE} To show this message.
     ${YELLOW}-t${BLUE} Host(s) to scan. For multiple hosts use commas (e.g. 192.168.0.1,192.168.0.2,etc.)
     ${YELLOW}-p${BLUE} Port(s) to scan. For multiple ports use commas (e.g. 80,8080,443,8443,etc.)
