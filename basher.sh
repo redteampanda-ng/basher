@@ -1,7 +1,7 @@
 #!/bin/bash
 # Simple Port Scanner. I wrote that little script for environments where no netcat or other tools are available
 
-VERSION="v0.1"
+VERSION="v0.2"
 
 # Colors
 C=$(printf '\033')
@@ -33,7 +33,7 @@ ${BLUE}Usage: $0 -t host(s) -p port(s) [-P 1|2|3 -i, -w 1, -q]
     ${YELLOW}-P${BLUE} Port(s) to scan from predefined list. Use -P 1 for top21 ports, -P 2 for top100 ports and -P 3 for top1000 ports
     ${YELLOW}-i${BLUE} Use ping before scanning a host - this will test if the host is reachable via ICMP (might generate false-positives if a firewall blocks ICMP)
     ${YELLOW}-w${BLUE} Wait time before the script will mark a port as closed (default 0.5) - this should be changed accordingly to the network quality
-    ${YELLOW}-q${BLUE} Quiet mode, dont show closed ports and dont ask if offline hosts should be scanned anyway"
+    ${YELLOW}-q${BLUE} Quiet mode, dont show closed ports and automatically skip offline hosts if -i was used"
 
 WAITPORT=0.5
 WAITICMP=3
@@ -72,20 +72,41 @@ done
 scanMe () {
     host=$1
     port=$2
-    
+
     if [[ $QUIET = True ]]; then
         timeout $WAITPORT bash -c "echo >/dev/tcp/$host/$port" 2> /dev/null &&
-        printf "${BLUE}$host${NC}:${GREEN}$port${NC} -> ${GREEN}[open]${NC}\n" && OPENPORTS=$((OPENPORTS+1)) ||
+        printf "${BLUE}$host${NC}:${GREEN}$port${NC}  \t ${GREEN}[ open ]${NC}\n" && OPENPORTS=$((OPENPORTS+1)) ||
         echo "closed" > /dev/null
     else
     	timeout $WAITPORT bash -c "echo >/dev/tcp/$host/$port" 2> /dev/null &&
-    	printf "${BLUE}$host${NC}:${GREEN}$port${NC} -> ${GREEN}[open]${NC}\n" && OPENPORTS=$((OPENPORTS+1)) ||
-    	printf "${BLUE}$host${NC}:${RED}$port${NC} -> ${RED}[closed]${NC}\n"
+    	printf "${BLUE}$host${NC}:${GREEN}$port${NC}  \t ${GREEN}[ open ]${NC}\n" && OPENPORTS=$((OPENPORTS+1)) ||
+    	printf "${BLUE}$host${NC}:${RED}$port${NC}  \t ${RED}[closed]${NC}\n"
     fi
 }
 
 # mandatory arguments
 if  [[ $HOSTS && $PORTS || $PORTMODE ]]; then
+    printf "${YELLOW}Scanning the following Host(s):${NC}\n${BLUE}$HOSTS${NC}\n"
+    printf "${YELLOW}Scanning the following Port(s):${NC}\n"
+    if [[ $PORTS ]]; then
+    	printf "${BLUE}$PORTS${NC}\n"
+    else
+    	case $PORTMODE in
+            1 ) printf "${BLUE}Top 21 Ports - nmap${NC}\n";;
+    	    2 ) printf "${BLUE}Top 100 Ports - nmap${NC}\n";;
+    	    3 ) printf "${BLUE}Top 1000 Ports - nmap${NC}\n";;
+    	esac
+    fi
+
+    printf "\n${YELLOW}Do you want to proceed with the scan? [y/N] ${NC}"
+    read -p "" CONTINUE
+    if [[ $CONTINUE == "y" || $CONTINUE == "Y" ]]; then
+	   printf "\n${GREEN}Starting scan${NC}\n"
+    else
+	   printf "\n${RED}Aborting${NC}\n"
+	   exit 1
+    fi
+
     IFS=',' read -r -a hostArray <<< "$HOSTS"
     for host in "${hostArray[@]}"
     do
@@ -142,7 +163,7 @@ if  [[ $HOSTS && $PORTS || $PORTMODE ]]; then
             fi
         fi
         ONLINEHOSTS=$((ONLINEHOSTS+1))
-        
+
         if [[ $PORTMODE = 1 ]]; then
             portArray=( "${TOP21[@]}" )
         elif [[ $PORTMODE = 2 ]]; then
@@ -152,7 +173,7 @@ if  [[ $HOSTS && $PORTS || $PORTMODE ]]; then
         else
             IFS=',' read -r -a portArray <<< "$PORTS"
         fi
-        
+
         for port in "${portArray[@]}"
         do
             if [ $port -lt 1 ] || [ $port -gt 65535 ]; then
