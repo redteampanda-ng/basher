@@ -1,39 +1,37 @@
 #!/bin/bash
 # Simple Port Scanner. I wrote that little script for environments where no netcat or other tools are available
 
-VERSION="v0.2"
-
 # Colors
 C=$(printf '\033')
 RED="${C}[1;31m"
-SED_RED="${C}[1;31m&${C}[0m"
+#SED_RED="${C}[1;31m&${C}[0m"
 GREEN="${C}[1;32m"
-SED_GREEN="${C}[1;32m&${C}[0m"
+#SED_GREEN="${C}[1;32m&${C}[0m"
 YELLOW="${C}[1;33m"
-SED_YELLOW="${C}[1;33m&${C}[0m"
-SED_RED_YELLOW="${C}[1;31;103m&${C}[0m"
+#SED_YELLOW="${C}[1;33m&${C}[0m"
+#SED_RED_YELLOW="${C}[1;31;103m&${C}[0m"
 BLUE="${C}[1;34m"
-SED_BLUE="${C}[1;34m&${C}[0m"
-ITALIC_BLUE="${C}[1;34m${C}[3m"
-LG="${C}[1;37m" #LightGray
-SED_LG="${C}[1;37m&${C}[0m"
-DG="${C}[1;90m" #DarkGray
-SED_DG="${C}[1;90m&${C}[0m"
+#SED_BLUE="${C}[1;34m&${C}[0m"
+#ITALIC_BLUE="${C}[1;34m${C}[3m"
+#LG="${C}[1;37m" #LightGray
+#SED_LG="${C}[1;37m&${C}[0m"
+#DG="${C}[1;90m" #DarkGray
+#SED_DG="${C}[1;90m&${C}[0m"
 NC="${C}[0m"
-UNDERLINED="${C}[5m"
-ITALIC="${C}[3m"
+#UNDERLINED="${C}[5m"
+#ITALIC="${C}[3m"
 
 # Help
 HELP=$GREEN"Scan Hosts for open Ports.
 ${NC}This script will scan hosts for open tcp ports.
-${BLUE}Usage: $0 -t host(s) -p port(s) [-P 1|2|3 -i, -w 1, -q]
+${BLUE}Usage: $0 -t host(s) -p port(s) [-P (1|2|3) -i, -w 1, -q]
     ${YELLOW}-h${BLUE} To show this message.
     ${YELLOW}-t${BLUE} Host(s) to scan. For multiple hosts use commas (e.g. 192.168.0.1,192.168.0.2,etc.)
     ${YELLOW}-p${BLUE} Port(s) to scan. For multiple ports use commas (e.g. 80,8080,443,8443,etc.)
-    ${YELLOW}-P${BLUE} Port(s) to scan from predefined list. Use -P 1 for top21 ports, -P 2 for top100 ports and -P 3 for top1000 ports
+    ${YELLOW}-P${BLUE} Port(s) to scan from predefined list. Use \"-P 1\" for top21 ports, \"-P 2\" for top100 ports or \"-P\" 3 for top1000 ports
     ${YELLOW}-i${BLUE} Use ping before scanning a host - this will test if the host is reachable via ICMP (might generate false-positives if a firewall blocks ICMP)
     ${YELLOW}-w${BLUE} Wait time before the script will mark a port as closed (default 0.5) - this should be changed accordingly to the network quality
-    ${YELLOW}-q${BLUE} Quiet mode, dont show closed ports and automatically skip offline hosts if -i was used"
+    ${YELLOW}-q${BLUE} Quiet mode, dont show closed ports and automatically skip offline hosts if -i was used. This is helpful when scanning multiple hosts or many ports"
 
 WAITPORT=0.5
 WAITICMP=3
@@ -52,7 +50,7 @@ TOP1000=(1 3 4 6 7 9 13 17 19 20 21 22 23 24 25 26 30 32 33 37 42 43 49 53 70 79
 OPTION='h?:t:p:iw:qP:'
 
 # fix the errors and all together argument handling
-while getopts $OPTION flag; do
+while getopts "$OPTION" flag; do
     case "${flag}" in
         h  ) printf "%s\n\n" "$HELP$NC" >&2; exit 1 ;;
         t  ) HOSTS="${OPTARG}" ;;
@@ -75,63 +73,67 @@ scanMe () {
 
     if [[ $QUIET = True ]]; then
         timeout $WAITPORT bash -c "echo >/dev/tcp/$host/$port" 2> /dev/null &&
-        printf "${BLUE}$host${NC}:${GREEN}$port${NC}  \t ${GREEN}[ open ]${NC}\n" && OPENPORTS=$((OPENPORTS+1)) ||
+        printf "%s%s%s:%s%s%s  \t %s[ open ]%s\n" "${BLUE}" "$host" "${NC}" "${GREEN}" "$port" "${NC}" "${GREEN}" "${NC}" && OPENPORTS=$((OPENPORTS+1)) ||
         echo "closed" > /dev/null
     else
     	timeout $WAITPORT bash -c "echo >/dev/tcp/$host/$port" 2> /dev/null &&
-    	printf "${BLUE}$host${NC}:${GREEN}$port${NC}  \t ${GREEN}[ open ]${NC}\n" && OPENPORTS=$((OPENPORTS+1)) ||
-    	printf "${BLUE}$host${NC}:${RED}$port${NC}  \t ${RED}[closed]${NC}\n"
+    	printf "%s%s%s:%s%s%s  \t %s[ open ]%s\n" "${BLUE}" "$host" "${NC}" "${GREEN}" "$port" "${NC}" "${GREEN}" "${NC}" && OPENPORTS=$((OPENPORTS+1)) ||
+    	printf "%s%s%s:%s%s%s  \t %s[closed]%s\n" "${BLUE}" "$host" "${NC}" "${RED}" "$port" "${NC}" "${RED}" "${NC}"
     fi
 }
 
 # mandatory arguments
-if  [[ $HOSTS && $PORTS || $PORTMODE ]]; then
-    printf "${YELLOW}Scanning the following Host(s):${NC}\n${BLUE}$HOSTS${NC}\n"
-    printf "${YELLOW}Scanning the following Port(s):${NC}\n"
-    if [[ $PORTS ]]; then
-    	printf "${BLUE}$PORTS${NC}\n"
+if  [[ "$HOSTS" && "$PORTS" || "$PORTMODE" ]]; then
+    IFS=',' read -r -a hostArray <<< "$HOSTS"
+    printf "%sThe following Host(s) will be scanned:%s\n" "${GREEN}" "${NC}" 
+    for printHost in "${hostArray[@]}"
+    do
+        printf "%s%s%s\n" "${BLUE}" "$printHost" "${NC}"
+    done
+    printf "%sThe following Port(s) will be scanned:%s\n" "${GREEN}" "${NC}"
+    if [[ "$PORTS" ]]; then
+    	printf "%s%s%s\n" "${BLUE}" "$PORTS" "${NC}"
     else
     	case $PORTMODE in
-            1 ) printf "${BLUE}Top 21 Ports - nmap${NC}\n";;
-    	    2 ) printf "${BLUE}Top 100 Ports - nmap${NC}\n";;
-    	    3 ) printf "${BLUE}Top 1000 Ports - nmap${NC}\n";;
+            1 ) printf "%sTop 21 Ports - nmap%s\n" "${BLUE}" "${NC}";;
+    	    2 ) printf "%sTop 100 Ports - nmap%s\n" "${BLUE}" "${NC}";;
+    	    3 ) printf "%sTop 1000 Ports - nmap%s\n" "${BLUE}" "${NC}";;
     	esac
     fi
 
-    printf "\n${YELLOW}Do you want to proceed with the scan? [y/N] ${NC}"
-    read -p "" CONTINUE
-    if [[ $CONTINUE == "y" || $CONTINUE == "Y" ]]; then
-	   printf "\n${GREEN}Starting scan${NC}\n"
+    printf "\n%sDo you want to proceed with the scan?%s [y/N] " "${YELLOW}" "${NC}"
+    read -r CONTINUE
+    if [[ "$CONTINUE" == "y" || "$CONTINUE" == "Y" ]]; then
+	   printf "\n%sStarting scan%s\n" "${GREEN}" "${NC}"
     else
-	   printf "\n${RED}Aborting${NC}\n"
+	   printf "\n%sAborting%s\n" "${RED}" "${NC}"
 	   exit 1
     fi
 
-    IFS=',' read -r -a hostArray <<< "$HOSTS"
     for host in "${hostArray[@]}"
     do
-        printf "Scanning Host: ${BLUE}%s${NC}\n" "$host"
+        printf "Scanning Host: %s%s%s\n" "${BLUE}" "$host" "${NC}"
         if [[ $ICMP = True ]]; then
-	       if [[ $host =~ [:]+ ]]; then
-                timeout $WAITICMP bash -c "ping6 -c 1 $host" &> /dev/null &&
+	       if [[ "$host" =~ [:]+ ]]; then
+                timeout "$WAITICMP" bash -c "ping6 -c 1 $host" &> /dev/null &&
                 ONLINE=True || ONLINE=False 
 
                 if [[ $ONLINE = True ]]; then
-                    TTL=$(ping6 -c 1 $host | grep -oP '(?<=ttl=)[^ ]*')
-                    printf "${BLUE}%s${GREEN} is online! -> TTL=%s${NC}\n" "$host" "$TTL"
+                    TTL=$(ping6 -c 1 "$host" | grep -oP '(?<=ttl=)[^ ]*')
+                    printf "%s%s%s is online! -> TTL=%s%s\n" "${BLUE}" "$host" "${GREEN}" "$TTL" "${NC}"
                 elif [[ $ONLINE = False && $QUIET = True ]]; then
-                    printf "${YELLOW}Skipping Host (${RED}offline${YELLOW}): ${BLUE}%s${NC}\n" "$host"
+                    printf "%sSkipping Host (%soffline%s): %s%s%s\n" "${YELLOW}" "${RED}" "${YELLOW}" "${BLUE}" "$host" "${NC}"
                     OFFLINEHOSTS=$((OFFLINEHOSTS+1))
                     continue
                 else
-                    printf "${YELLOW}Host seems offline. If you are sure that the host is online, omit -i option when running the script${NC}\n"
-                    printf "${YELLOW}Do you want to scan the host anyway? [y\\N] ${NC}"
-                    read -p "" offlineHost
+                    printf "%sHost %s%s%s seems offline.%s If you don't want to be prompted with this message, %somit the \"-i\"%s option when running the script.\n" "${YELLOW}" "${BLUE}" "$host" "${YELLOW}" "${NC}" "${BLUE}" "${NC}"
+                    printf "Do you want to scan the host anyway? [y/N] "
+                    read -r offlineHost
 
-                    if [[ $offlineHost =~ ^[yY]$ ]]; then
-                        printf "Scanning Host: ${BLUE}%s${NC}\n" "$host"
+                    if [[ "$offlineHost" == "y" || "$offlineHost" == "Y" ]]; then
+                        printf "Scanning Host: %s%s%s\n" "${BLUE}" "$host" "${NC}"
                     else
-                        printf "${YELLOW}Skipping Host (${RED}offline${YELLOW}): ${BLUE}%s${NC}\n" "$host"
+                        printf "%sSkipping Host (%soffline%s): %s%s%s\n" "${YELLOW}" "${RED}" "${YELLOW}" "${BLUE}" "$host" "${NC}"
                         OFFLINEHOSTS=$((OFFLINEHOSTS+1))
                         continue 
                     fi
@@ -141,21 +143,21 @@ if  [[ $HOSTS && $PORTS || $PORTMODE ]]; then
                 ONLINE=True || ONLINE=False
 
                 if [[ $ONLINE = True ]]; then
-                    TTL=$(ping -c 1 $host | grep -oP '(?<=ttl=)[^ ]*')
-                    printf "${BLUE}%s${GREEN} is online! -> TTL=%s${NC}\n" "$host" "$TTL"
+                    TTL=$(ping -c 1 "$host" | grep -oP '(?<=ttl=)[^ ]*')
+                    printf "%s%s%s is online! -> TTL=%s%s\n" "${BLUE}" "$host" "${GREEN}" "$TTL" "${NC}"
                 elif [[ $ONLINE = False && $QUIET = True ]]; then
-                    printf "${YELLOW}Skipping Host (${RED}offline${YELLOW}): ${BLUE}%s${NC}\n" "$host"
+                    printf "%sSkipping Host (%soffline%s): %s%s%s\n" "${YELLOW}" "${RED}" "${YELLOW}" "${BLUE}" "$host" "${NC}"
                     OFFLINEHOSTS=$((OFFLINEHOSTS+1))
                     continue
                 else
-                    printf "${YELLOW}Host seems offline. If you are sure that the host is online, omit -i option when running the script${NC}\n"
-                    printf "${YELLOW}Do you want to scan the host anyway? [y/N] ${NC}"
-                    read -p "" offlineHost
+                    printf "%sHost %s%s%s seems offline.%s If you don't want to be prompted with this message, %somit the \"-i\"%s option when running the script.\n" "${YELLOW}" "${BLUE}" "$host" "${YELLOW}" "${NC}" "${BLUE}" "${NC}"
+                    printf "Do you want to scan the host anyway? [y/N] "
+                    read -r offlineHost
 
-                    if [[ $offlineHost =~ ^[yY]$ ]]; then
-                        printf "Scanning Host: ${BLUE}%s${NC}\n" "$host"
+                    if [[ "$offlineHost" == "y" || "$offlineHost" == "Y" ]]; then
+                        printf "Scanning Host: %s%s%s\n" "${BLUE}" "$host" "${NC}"
                     else
-                        printf "${YELLOW}Skipping Host (${RED}offline${YELLOW}): ${BLUE}%s${NC}\n" "$host"
+                        printf "%sSkipping Host (%soffline%s): %s%s%s\n" "${YELLOW}" "${RED}" "${YELLOW}" "${BLUE}" "$host" "${NC}"
                         OFFLINEHOSTS=$((OFFLINEHOSTS+1))
                         continue 
                     fi
@@ -176,8 +178,8 @@ if  [[ $HOSTS && $PORTS || $PORTMODE ]]; then
 
         for port in "${portArray[@]}"
         do
-            if [ $port -lt 1 ] || [ $port -gt 65535 ]; then
-                printf "Port is invalid: ${RED}%s${NC}\n" "$port"
+            if [ "$port" -lt 1 ] || [ "$port" -gt 65535 ]; then
+                printf "Port is invalid: %s%s%s\n" "${RED}" "$port" "${NC}"
                 CLOSEDPORTS=$((CLOSEDPORTS+1))
                 continue
             else
@@ -190,17 +192,17 @@ if  [[ $HOSTS && $PORTS || $PORTMODE ]]; then
         printf "\n"
     done
     printf "\nSummary of the scan:\n"
-    printf "Scanned hosts: ${YELLOW}$ONLINEHOSTS${NC}\n"
-    printf "Skipped hosts: ${YELLOW}$OFFLINEHOSTS${NC}\n"
-    printf "Open ports: ${GREEN}$OPENPORTS${NC}\n"
-    printf "Closed ports: ${RED}$CLOSEDPORTS${NC}\n"
+    printf "Scanned hosts: %s%s%s\n" "${YELLOW}" "$ONLINEHOSTS" "${NC}"
+    printf "Skipped hosts: %s%s%s\n" "${YELLOW}" "$OFFLINEHOSTS" "${NC}"
+    printf "Open ports: %s%s%s\n" "${GREEN}" "$OPENPORTS" "${NC}"
+    printf "Closed ports: %s%s%s\n" "${RED}" "$CLOSEDPORTS" "${NC}"
 elif [[ ! $HOSTS ]]; then
-    printf "${RED}You have to specify at least one destination host${NC}\n"
+    printf "%sYou have to specify at least one destination host%s\n" "${RED}" "${NC}"
     exit 1
 elif [[ ! $PORTS && ! $PORTMODE ]]; then
-    printf "${RED}You have to specify at least one destination port or a portrange${NC}\n"
+    printf "%sYou have to specify at least one destination port or a portrange%s\n" "${RED}" "${NC}"
     exit 1
 else
-    printf "${RED}Catch-All error!${NC}\n"
+    printf "%sCatch-All error!%s\n" "${RED}" "${NC}"
     exit 1
 fi
